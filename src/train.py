@@ -22,7 +22,7 @@ MODEL_NAME = "YOUR_BEST_PRETRAINED_MODEL"
 TRAIN_FILE = "data/train_pairs.csv"
 OUTPUT_DIR = "models/sentence-transformer"
 
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 NUM_EPOCHS = 2
 LEARNING_RATE = 2e-5
 WARMUP_RATIO = 0.1
@@ -44,13 +44,7 @@ if torch.cuda.is_available():
 # 3. Load training data
 # ============================================================
 
-dataset = load_dataset(
-    "csv",
-    data_files=TRAIN_FILE,
-)["train"]
-
-print(dataset)
-print(dataset.column_names)
+train_dataset, val_dataset = prepare_training_data()
 
 
 # ============================================================
@@ -85,17 +79,11 @@ args = SentenceTransformerTrainingArguments(
 
     warmup_ratio=WARMUP_RATIO,
 
-    fp16=torch.cuda.is_available(),
-
-    batch_sampler=BatchSamplers.NO_DUPLICATES,
-
+    fp16=True,
+  
     logging_steps=50,
 
     save_strategy="epoch",
-
-    save_total_limit=2,
-
-    seed=SEED,
 
     report_to="none",
 )
@@ -108,7 +96,7 @@ args = SentenceTransformerTrainingArguments(
 trainer = SentenceTransformerTrainer(
     model=model,
     args=args,
-    train_dataset=dataset,
+    train_dataset=train_dataset,
     loss=loss,
 )
 
