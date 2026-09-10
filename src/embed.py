@@ -11,12 +11,9 @@ from sentence_transformers import SentenceTransformer
 
 MODEL_PATH = "models/sentence-transformer/final"
 
-CORPUS_FILE = "data/corpus.csv"
-QUERIES_FILE = "data/queries.csv"
-
 OUTPUT_DIR = Path("data/embeddings")
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 
 
 # ============================================================
@@ -33,23 +30,22 @@ print("Embedding dimension:", model.get_sentence_embedding_dimension())
 # 3. Load corpus and queries
 # ============================================================
 
-corpus = pd.read_csv(CORPUS_FILE)
-queries = pd.read_csv(QUERIES_FILE)
-
-print(f"Corpus size: {len(corpus)}")
-print(f"Query size: {len(queries)}")
+corpus = load_dataset(
+    "BeIR/scidocs",
+    "corpus"
+    )
+queries = load_dataset(
+        "BeIR/scidocs",
+        "queries"
+    )
 
 
 # ============================================================
 # 4. Prepare texts
 # ============================================================
 
-corpus_texts = (
-    corpus["title"].fillna("") + " " +
-    corpus["text"].fillna("")
-).tolist()
-
-query_texts = queries["text"].fillna("").tolist()
+corpus_df = corpus["corpus"].to_pandas()
+queries_df = queries["queries"].to_pandas()
 
 
 # ============================================================
@@ -58,24 +54,23 @@ query_texts = queries["text"].fillna("").tolist()
 
 print("\nEncoding corpus...")
 
-corpus_embeddings = model.encode(
-    corpus_texts,
-    batch_size=BATCH_SIZE,
+corpus_embeddings =model.encode(
+    corpus_df["text"].tolist(),
+    batch_size=32,
     show_progress_bar=True,
-    convert_to_numpy=True,
-    normalize_embeddings=True,
+    convert_to_tensor=True,
+    normalize_embeddings=True
 )
 
 print("\nEncoding queries...")
 
 query_embeddings = model.encode(
-    query_texts,
-    batch_size=BATCH_SIZE,
+    queries_df["text"].tolist(),
+    batch_size=32,
     show_progress_bar=True,
-    convert_to_numpy=True,
-    normalize_embeddings=True,
+    convert_to_tensor=True,
+    normalize_embeddings=True
 )
-
 
 # ============================================================
 # 6. Save embeddings
