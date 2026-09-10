@@ -3,86 +3,133 @@
 import numpy as np
 
 
-def recall_at_k(retrieved_ids, relevant_ids, k=10):
-    recall_scores = []
-    for query_idx, labels in enumerate(fine_tuned_retrieval_labels):
+# ============================================================
+# Recall@K
+# ============================================================
 
-        query_id = queries_df.iloc[query_idx]["_id"]
-        total_relevant = len(qrels_dict[query_id])
+def recall_at_k(retrieved_ids, query_ids, qrels, k=10):
 
-        # -------------------------
-        # Recall@10
-        # -------------------------
-        retrieved_relevant = sum(labels)
+    recalls = []
 
-        recall = retrieved_relevant / total_relevant
-        recall_scores.append(recall)
-    return recall_scores
+    for i, query_id in enumerate(query_ids):
+
+        retrieved = set(retrieved_ids[i, :k])
+
+        relevant = set(qrels[query_id])
+
+        if len(relevant) == 0:
+            continue
+
+        hits = len(retrieved & relevant)
+
+        recalls.append(hits / len(relevant))
+
+    return np.mean(recalls)
 
 
-def mrr_at_k(retrieved_ids, relevant_ids, k=10):
-    mrr_scores = []
-    for query_idx, labels in enumerate(fine_tuned_retrieval_labels):
+# ============================================================
+# MRR@K
+# ============================================================
 
-        query_id = queries_df.iloc[query_idx]["_id"]
-        total_relevant = len(qrels_dict[query_id])
-        reciprocal_rank = 0
-        for rank, label in enumerate(labels, start=1):
-            if label == 1:
-                reciprocal_rank = 1 / rank
+def mrr_at_k(retrieved_ids, query_ids, qrels, k=10):
+
+    reciprocal_ranks = []
+
+    for i, query_id in enumerate(query_ids):
+
+        retrieved = retrieved_ids[i, :k]
+
+        relevant = set(qrels[query_id])
+
+        rr = 0.0
+
+        for rank, doc_id in enumerate(retrieved, start=1):
+
+            if doc_id in relevant:
+                rr = 1.0 / rank
                 break
 
-        mrr_scores.append(reciprocal_rank)
-    return mrr_scores
+        reciprocal_ranks.append(rr)
+
+    return np.mean(reciprocal_ranks)
 
 
-def ndcg_at_k(retrieved_ids, relevant_ids, k=10):
-    ndcg_scores = []
-    for query_idx, labels in enumerate(fine_tuned_retrieval_labels):
+# ============================================================
+# nDCG@K
+# ============================================================
 
-        query_id = queries_df.iloc[query_idx]["_id"]
-        total_relevant = len(qrels_dict[query_id])
+def ndcg_at_k(retrieved_ids, query_ids, qrels, k=10):
+
+    ndcgs = []
+
+    for i, query_id in enumerate(query_ids):
+
+        retrieved = retrieved_ids[i, :k]
+
+        relevant = set(qrels[query_id])
+
+        # ----------------------------
+        # DCG
+        # ----------------------------
 
         dcg = 0.0
 
-        for rank, label in enumerate(labels, start=1):
-            if label == 1:
-                dcg += 1 / math.log2(rank + 1)
+        for rank, doc_id in enumerate(retrieved, start=1):
 
-        ideal_relevant = min(total_relevant, len(labels))
+            if doc_id in relevant:
+                dcg += 1.0 / np.log2(rank + 1)
 
-        idcg = 0.0
+        # ----------------------------
+        # Ideal DCG
+        # ----------------------------
 
-        for rank in range(1, ideal_relevant + 1):
-            idcg += 1 / math.log2(rank + 1)
+        ideal_relevant = min(len(relevant), k)
 
-        ndcg = dcg / idcg if idcg > 0 else 0.0
-        ndcg_scores.append(ndcg)
-    return ndcg_scores
+        idcg = sum(
+            1.0 / np.log2(rank + 1)
+            for rank in range(1, ideal_relevant + 1)
+        )
+
+        if idcg == 0:
+            ndcg = 0.0
+        else:
+            ndcg = dcg / idcg
+
+        ndcgs.append(ndcg)
+
+    return np.mean(ndcgs)
 
 
+# ============================================================
+# Complete Evaluation
+# ============================================================
 
 def evaluate_retrieval(
     retrieved_ids,
+    query_ids,
     qrels,
-    k=10
+    k=10,
 ):
+
     recall = recall_at_k(
         retrieved_ids,
+        query_ids,
         qrels,
-        k
+        k,
     )
 
     mrr = mrr_at_k(
         retrieved_ids,
+        query_ids,
         qrels,
-        k
+        k,
     )
 
     ndcg = ndcg_at_k(
         retrieved_ids,
+        query_ids,
         qrels,
-        k
+        k,
     )
 
     return {
